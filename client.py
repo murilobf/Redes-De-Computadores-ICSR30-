@@ -33,22 +33,23 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 #Loop pra pegar pedir o ip mais de uma vez se precisar
 while True:
-    conexao = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005).").strip()
+    conexao = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005). ").strip()
 
     #Pega o IP e a porta
     try:
         udp_ip,udp_port = conexao.split(":")
         udp_port = int(udp_port)
-        break
 
     except ValueError:
         print("Formato inválido, insira no formato IP:PORTA")
+        continue
 
 #Loop pra simular a conexão com o servidor
 
-while True:
     requisicao = input("Insira o nome do arquivo a ser requisito no formato GET /nome_arquivo.ext ").strip().encode("utf-8")
     sock.sendto(requisicao,(udp_ip,udp_port))
-    data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
 
-    print(data.decode())
+    while True:
+        data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
+
+        print(data.decode())
