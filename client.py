@@ -4,7 +4,7 @@ Requisitos do Cliente UDP:
     Inicialização: O cliente deve ser executado após o servidor estar ativo.
     FEITO Conexão: Permitir que o usuário especifique o endereço IP e a porta do servidor UDP ao qual deseja se conectar.
     Requisição:
-    TODO    Enviar uma requisição ao servidor, utilizando o protocolo de aplicação definido, para solicitar um arquivo específico (Exemplo de entrada do usuário: @IP_Servidor:Porta_Servidor/nome_do_arquivo.ext).
+        Enviar uma requisição ao servidor, utilizando o protocolo de aplicação definido, para solicitar um arquivo específico (Exemplo de entrada do usuário: @IP_Servidor:Porta_Servidor/nome_do_arquivo.ext).
     Simulação de Perda:
     TODO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
     Recepção e Montagem:
@@ -28,12 +28,27 @@ import socket
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
-udp_ip = input("Insira o IP a se conectar.")
-udp_port = int(input("Insira a porta a se conectar."))
+#Cria o objeto de socket
+sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+#Loop pra pegar pedir o ip mais de uma vez se precisar
+while True:
+    conexao = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005).").strip()
 
-sock.sendto(b"teste",(udp_ip,udp_port))
-# data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
+    #Pega o IP e a porta
+    try:
+        udp_ip,udp_port = conexao.split(":")
+        udp_port = int(udp_port)
+        break
 
-# print(data)
+    except ValueError:
+        print("Formato inválido, insira no formato IP:PORTA")
+
+#Loop pra simular a conexão com o servidor
+
+while True:
+    requisicao = input("Insira o nome do arquivo a ser requisito no formato GET /nome_arquivo.ext ").strip().encode("utf-8")
+    sock.sendto(requisicao,(udp_ip,udp_port))
+    data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
+
+    print(data.decode())
