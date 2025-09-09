@@ -1,12 +1,39 @@
+"""
+Requisitos do Cliente UDP:
+
+    Inicialização: O cliente deve ser executado após o servidor estar ativo.
+    FEITO Conexão: Permitir que o usuário especifique o endereço IP e a porta do servidor UDP ao qual deseja se conectar.
+    Requisição:
+    TODO    Enviar uma requisição ao servidor, utilizando o protocolo de aplicação definido, para solicitar um arquivo específico (Exemplo de entrada do usuário: @IP_Servidor:Porta_Servidor/nome_do_arquivo.ext).
+    Simulação de Perda:
+    TODO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
+    Recepção e Montagem:
+    TODO    Receber os segmentos do arquivo enviados pelo servidor.
+    TODO    Armazenar e ordenar os segmentos recebidos corretamente.
+    TODO    Verificar a integridade de cada segmento (ex: usando checksum ou resumos criptográficos como o MD5 e SHA.).
+    Verificação e Finalização:
+    TODO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
+    TODO    Se o arquivo estiver OK: Salvar o arquivo reconstruído localmente e informar o sucesso ao usuário. Opcionalmente, apresentar/abrir o arquivo.
+    TODO    Se o arquivo estiver com erro ou incompleto:
+            Identificar quais segmentos estão faltando ou corrompidos.
+    TODO        Solicitar a retransmissão desses segmentos específicos ao servidor, utilizando o protocolo definido.
+    TODO        Repetir o processo de recepção e verificação até que o arquivo esteja completo e correto.
+    TODO        Interpretação de Erros: Interpretar e exibir mensagens de erro recebidas do servidor (ex: “Arquivo não encontrado”).
+
+
+"""
+
 import socket
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
+udp_ip = input("Insira o IP a se conectar.")
+udp_port = int(input("Insira a porta a se conectar."))
+
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-sock.bind((UDP_IP, UDP_PORT)) #binda o socket no endereço
 
-while True:
-    data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
+sock.sendto(b"teste",(udp_ip,udp_port))
+# data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
 
-    print(data)
+# print(data)

@@ -3,13 +3,45 @@ FONTES:
 https://wiki.python.org/moin/UdpCommunication
 """
 
+"""
+Requisitos do Servidor UDP:
+
+    Inicialização: O servidor deve ser executado antes do cliente.
+    FEITO Porta: Deve operar em uma porta UDP especificada, com número maior que 1024 (portas abaixo de 1024 geralmente exigem privilégios de administrador).
+    Recepção e Protocolo:
+    FEITO    Aguardar conexões/mensagens de clientes.
+    TODO    Interpretar as requisições recebidas. É necessário definir e implementar um protocolo de aplicação simples sobre UDP para que o cliente requisite arquivos (Exemplo de formato de requisição: GET /nome_do_arquivo.ext).
+    Processamento da Requisição:
+    TODO    Verificar se o arquivo solicitado existe.
+    TODO    Se o arquivo não existir: Enviar uma mensagem de erro claramente definida pelo seu protocolo para o cliente.
+    Transmissão do Arquivo (se existir):
+    TODO    O arquivo a ser transmitido deve ser relativamente grande (ex: > 1 MB) para justificar a segmentação.
+    TODO    Segmentação: Dividir o arquivo em múltiplos segmentos/pedaços para envio em datagramas UDP.
+    TODO    Cabeçalho Customizado: Cada segmento enviado deve conter informações de controle definidas pelo seu protocolo (ver “Considerações de Protocolo” abaixo).
+    TODO    Retransmissão: Implementar lógica para reenviar segmentos específicos caso o cliente solicite (devido a perdas ou erros).
+
+
+"""
+
 import socket
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
+BUFFER_SIZE = 1024
+
 # Cria o objeto de tipo socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+sock.bind((UDP_IP,UDP_PORT)) #O servidor fica ouvindo nessa porta
 
-#Envia a mensagem no formato (mensagem (IP, PORT))
-sock.sendto(b"hello world", (UDP_IP, UDP_PORT))
+#Envia a mensagem no formato (mensagem (IP, PORT))só pra ter como base
+#sock.sendto(b"hello world", (UDP_IP, UDP_PORT))
+
+while True:
+
+    data,address = sock.recvfrom(BUFFER_SIZE) #Espera um novo cliente
+
+    mensagem_cliente = data.decode("raw-unicode-escape") #Decodifica
+
+    print(mensagem_cliente)
+
