@@ -29,9 +29,13 @@ import zlib
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
+TAM_BUFFER = 4096
+
+TIMEOUT_SOCKET = 2
+
 #Cria o objeto de socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
-
+sock.settimeout(TIMEOUT_SOCKET) #Timeout do socket
 
 def checksum_crc32(segmento):
     return zlib.crc32(segmento) & 0xffffffff
@@ -44,11 +48,24 @@ while True:
     try:
         udp_ip,udp_port = conexao.split(":")
         udp_port = int(udp_port)
-        break
+
+        #Testa se a conexão existe 
+        try:
+            sock.sendto(b"ACK",(udp_ip,udp_port))
+            data,address = sock.recvfrom(TAM_BUFFER)
+
+            if(data.decode("utf-8").startswith("ACK")):
+                break
+
+        except TimeoutError:
+            print("Tempo de resposta excedido, verifique servidor ou porta inseridos")
+            continue
 
     except ValueError:
         print("Formato inválido, insira no formato IP:PORTA")
         continue
+
+
 
 #Loop pra manter a conexão com o servidor
 
@@ -57,28 +74,44 @@ while True:
     fim_transferencia = False
     requisicao = input("Insira o nome do arquivo a ser requisito no formato GET /nome_arquivo.ext ").strip().encode("utf-8")
     sock.sendto(requisicao,(udp_ip,udp_port))
+    existe_arquivo,address = sock.recvfrom(TAM_BUFFER)
+    existe_arquivo = existe_arquivo.decode()
+
+    print(existe_arquivo.split('|'))
+    if(existe_arquivo.startswith("ERRO")):
+        continue
 
     lista_segmentos = []
+    qtde_segmentos_recebidos = 0
 
     #Loop para continuar recebendo dados até o arquivo estar completo
     while not fim_transferencia:
-        data,address = sock.recvfrom(1024) # recebe a informação (o 1024 é o tamanho do buffer)
-
+        data,address = sock.recvfrom(TAM_BUFFER) 
+        
         data = data.decode("utf-8")
-        header,conteudo = data.split('|',maxsplit=1) 
+
+        header,conteudo = data.split('|',maxsplit=1)
         
         num_segmento, qtde_segmentos, checksum = header.split('#')
         num_segmento, qtde_segmentos, checksum = int(num_segmento), int(qtde_segmentos), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
 
-        auxChecksum = checksum_crc32(conteudo.encode())
+        auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
 
-        print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}")
+        print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
+        # print(data)
 
         #Se a condição abaixo for verdade, o segmento está corrompido, tem que pedir de novo
         if(checksum != auxChecksum):
+            print("ERRO")
             sock.sendto(f"RESEND /{num_segmento}", (udp_ip,udp_port))
             
+        else:
+            qtde_segmentos_recebidos += 1
 
+        if(qtde_segmentos_recebidos == qtde_segmentos): 
+            fim_transferencia = True
+            
+    print("AAAAA")
     #TODO: AQUI FICARÁ A PARTE DE RECONSTRUÇÃO DO DOCUMENTO
 
     
