@@ -40,6 +40,11 @@ sock.settimeout(TIMEOUT_SOCKET) #Timeout do socket
 def checksum_crc32(segmento):
     return zlib.crc32(segmento) & 0xffffffff
 
+def remonta_documento(data):
+    arquivo = lista_segmentos.sort(key=lambda segmento: segmento.split('#',1))
+
+    return arquivo
+
 #Loop pra pegar pedir o ip mais de uma vez se precisar
 while True:
     conexao = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005). ").strip()
@@ -107,11 +112,19 @@ while True:
             
         else:
             qtde_segmentos_recebidos += 1
+            lista_segmentos.append(data)
 
         if(qtde_segmentos_recebidos == qtde_segmentos): 
             fim_transferencia = True
+            lista_segmentos.sort(key=lambda segmento: segmento.split('#',1)) #Ordena a lista de acordo com o cabeçalho
+
+            print("Transnferência finalizada, montando arquivo...")
             
-    print("AAAAA")
+    
     #TODO: AQUI FICARÁ A PARTE DE RECONSTRUÇÃO DO DOCUMENTO
+    for segmento in lista_segmentos:
+        cabecalho,conteudo = segmento.split("|")
+        with open(f"client/teste.txt", "a") as f:
+            f.write(conteudo)
 
     
