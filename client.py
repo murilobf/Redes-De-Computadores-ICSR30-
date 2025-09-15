@@ -6,7 +6,7 @@ Requisitos do Cliente UDP:
     Requisição:
         Enviar uma requisição ao servidor, utilizando o protocolo de aplicação definido, para solicitar um arquivo específico (Exemplo de entrada do usuário: @IP_Servidor:Porta_Servidor/nome_do_arquivo.ext).
     Simulação de Perda:
-    TODO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
+    FEITO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
     Recepção e Montagem:
     FEITO    Receber os segmentos do arquivo enviados pelo servidor.
     FEITO    Armazenar e ordenar os segmentos recebidos corretamente.
@@ -23,6 +23,7 @@ Requisitos do Cliente UDP:
 
 import socket
 import zlib
+import random
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
@@ -30,6 +31,8 @@ UDP_PORT = 5005
 TAM_BUFFER = 4096
 
 TIMEOUT_SOCKET = 1
+
+DESCARTAR = True
 
 #Cria o objeto de socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -94,16 +97,25 @@ while True:
 
     #Loop para continuar recebendo dados até o arquivo estar completo
     while not fim_transferencia:
-        data,address = sock.recvfrom(TAM_BUFFER) 
-        
-        data = data.decode("utf-8")
+        recebido = False
 
-        header,conteudo = data.split('|',maxsplit=1)
-        
-        num_segmento, checksum = header.split('#')
-        num_segmento, checksum = int(num_segmento), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
+        #Lógica pra descartar segmentos aleatoriamente
+        if(DESCARTAR and random.randint(1,100) > 70):
+            continue
 
-        auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
+        else:
+            data,address = sock.recvfrom(TAM_BUFFER) 
+            
+            data = data.decode("utf-8")
+
+            header,conteudo = data.split('|',maxsplit=1)
+            
+            num_segmento, checksum = header.split('#')
+            num_segmento, checksum = int(num_segmento), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
+
+            auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
+
+            recebido = True
 
         #print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
         # print(data)

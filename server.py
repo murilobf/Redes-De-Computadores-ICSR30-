@@ -64,7 +64,7 @@ def envio(address,num_segmento,conteudo):
 
 def reenvio(address,num_segmento,conteudo):
     envio(address,num_segmento,conteudo)
-    
+    #TODO implementar lógica de limite de tentativas (talvez seja mais fácil fazer isso direto no loop principal, mas tentar fazer aqui pra ficar mais legível)
 
 
 #Envia a mensagem no formato (mensagem (IP, PORT))só pra ter como base
