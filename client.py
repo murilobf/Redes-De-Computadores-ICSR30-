@@ -29,7 +29,7 @@ UDP_PORT = 5005
 
 TAM_BUFFER = 4096
 
-TIMEOUT_SOCKET = 2
+TIMEOUT_SOCKET = 1
 
 #Cria o objeto de socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -80,9 +80,14 @@ while True:
     existe_arquivo,address = sock.recvfrom(TAM_BUFFER)
     existe_arquivo = existe_arquivo.decode()
 
-    print(existe_arquivo.split('|'))
-    if(existe_arquivo.startswith("ERRO")):
+    #O arquivo todo
+    header_arquivo, conteudo_arquivo = existe_arquivo.split('|') 
+    print(conteudo_arquivo)
+    if(header_arquivo.startswith("ERRO")):
         continue
+    else:
+        qtde_segmentos = int(header_arquivo.split('#')[1])
+        checksum_arquivo = int(header_arquivo.split('#')[2])
 
     lista_segmentos = []
     qtde_segmentos_recebidos = 0
@@ -95,26 +100,29 @@ while True:
 
         header,conteudo = data.split('|',maxsplit=1)
         
-        num_segmento, qtde_segmentos, checksum = header.split('#')
-        num_segmento, qtde_segmentos, checksum = int(num_segmento), int(qtde_segmentos), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
+        num_segmento, checksum = header.split('#')
+        num_segmento, checksum = int(num_segmento), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
 
         auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
 
-        print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
+        #print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
         # print(data)
 
         #Se a condição abaixo for verdade, o segmento está corrompido, tem que pedir de novo
         if(checksum != auxChecksum):
             print("ERRO de checksum, pedindo segmento novamente")
-            sock.sendto(f"RESEND /{num_segmento}", (udp_ip,udp_port))
+            sock.sendto(f"RESEND /{num_segmento}".encode(), (udp_ip,udp_port))
             
         else:
             qtde_segmentos_recebidos += 1
             lista_segmentos.append(data)
+            sock.sendto(f"ACK|{qtde_segmentos_recebidos-1}".encode(),(udp_ip,udp_port))
+
+        print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
 
         if(qtde_segmentos_recebidos == qtde_segmentos): 
             fim_transferencia = True
-            lista_segmentos.sort(key=lambda segmento: segmento.split('#',1)) #Ordena a lista de acordo com o cabeçalho
+            lista_segmentos.sort(key=lambda segmento: segmento.split('#', 1)) #Ordena a lista de acordo com o cabeçalho
 
             print("Transnferência finalizada, montando arquivo...")
             
@@ -128,4 +136,3 @@ while True:
     except:
         print("Erro ao salvar documento")
 
-    

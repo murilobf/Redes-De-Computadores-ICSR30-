@@ -34,6 +34,8 @@ UDP_PORT = 5005
 TAM_BUFFER = 4096
 TAM_CABECALHO = 80 
 TAM_CONTEUDO = TAM_BUFFER - TAM_CABECALHO
+
+TIMEOUT_SOCKET = 1
 #80 pois foi verificado que, dependendo da quantidade de caracteres (seja pela quantidade de segmentos ou pelo tamanho do checksum)
 #o cabeçalho pesava cerca de 60 bytes (casos maiores, fora do escopo do trabalho, mas para garantir ficou assim). Foi deixado mais alguns para margem de segurança.
 
@@ -47,15 +49,34 @@ def checksum_crc32(segmento):
 def ack(address):
     sock.sendto(b"ACK",address)
 
+#Função para solicitar o reenvio de um segmento perdido/corrompido
+def envio(address,num_segmento,conteudo):
+    inicio_segmento = num_segmento * TAM_CONTEUDO
+    fim_segmento = inicio_segmento + TAM_CONTEUDO
+    bloco = conteudo[inicio_segmento:fim_segmento]
+
+    checksum = checksum_crc32(bloco)
+
+    cabecalho = (f"{num_segmento}#{checksum}|").encode("utf-8")
+
+    segmento = cabecalho+bloco
+    cache_segmentos.append(segmento)
+
+    sock.sendto(segmento, address)
+
+
 #Envia a mensagem no formato (mensagem (IP, PORT))só pra ter como base
 #sock.sendto(b"hello world", (UDP_IP, UDP_PORT))
 
 #Loop pra manter a conexão
 while True:
-
+    sock.settimeout(None)
     data,address = sock.recvfrom(TAM_BUFFER) #Espera um novo cliente
 
-    mensagem_cliente = data.decode("raw-unicode-escape") #Decodifica
+    mensagem_cliente = data.decode()
+
+    #Para caso precise reenviar 
+    cache_segmentos = []
 
     #Mensagem simples para verificar conexão
     if(mensagem_cliente.startswith("ACK")):
@@ -69,42 +90,39 @@ while True:
             sock.sendto(("ERRO|Arquivo não encontrado.").encode("utf-8"), address)
             continue
         else:
-            sock.sendto("ACK|Arquivo encontrado. Iniciando transferência".encode("utf-8"), address)
+            #Pega o arquivo se ele existir
+            with open(nome_arquivo, "r") as arquivo:
+                conteudo = arquivo.read().encode("utf-8")
 
-        #Pega o arquivo se ele existir
-        with open(nome_arquivo, "r") as arquivo:
-            conteudo = arquivo.read().encode("utf-8")
+            #Calcula quantos segmentos são necessários para enviar o arquivo
+            qtde_segmentos = math.ceil(len(conteudo)/TAM_CONTEUDO)
+            checksum_arquivo = checksum_crc32(conteudo)
+            sock.sendto(f"ACK#{qtde_segmentos}#{checksum_arquivo}|Arquivo encontrado. Iniciando transferência".encode("utf-8"), address)
 
-        #Transmite o arquivo em pacotes diferentes
-        qtde_segmentos = math.ceil(len(conteudo)/TAM_CONTEUDO)
 
         #Mensagem para fins de teste/debug
         print(f"Enviando o arquivo {nome_arquivo} para {address} em {qtde_segmentos} arquivos")
 
-        #Para caso precise reenviar TODO isso provavelmente vai dar errado já que o escopo desse e do resend são diferentes, arrumar isso
-        cache_segmentos = []
-
-        #Envia cada segmentos do arquivo                
+        #Se o socket levar mais que TIMEOUT_SOCKET pra responder ele vai entender que o cliente não recebeu e tentar reenviar
+        sock.settimeout(TIMEOUT_SOCKET)
+        #Envia cada segmento do arquivo                
         for num_segmento in range(qtde_segmentos):
 
-            inicio_segmento = num_segmento * TAM_CONTEUDO
-            fim_segmento = inicio_segmento + TAM_CONTEUDO
-            bloco = conteudo[inicio_segmento:fim_segmento]
-
-            checksum = checksum_crc32(bloco)
-
-            cabecalho = (f"{num_segmento}#{qtde_segmentos}#{checksum}|").encode("utf-8")
-
-            segmento = cabecalho+bloco
-            cache_segmentos.append(segmento)
-
-            sock.sendto(segmento, address)
-            print(num_segmento)
+            envio(address,num_segmento,conteudo)
+            
             time.sleep(0.001) #TODO: o sleep está aqui temporariamente, o pc não aguenta enviar e receber milhares de pacotes de uma vez só, mas pouco a pouco ele vai
             #TODO: ver o que é e implementar lógica de janela deslizante para controlar isso
-            
-        print(f"\n\n {qtde_segmentos}")
 
+            #Espera a resposta do cliente informando que recebeu o segmento e qual o último segmento recebeido
+            try:
+                confirmacao,address = sock.recvfrom(TAM_BUFFER)
+                confirmacao = confirmacao.decode()
+                ultimo_recebido = confirmacao.split("|")[1]
+            #TODO: Implementar mais que 1 tentativa de reenvio
+            #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
+            except TimeoutError:
+                envio(address,ultimo_recebido,conteudo)
+                
     elif(mensagem_cliente.startswith("RESEND /")):
         #TODO: reenviar o segmento pedido
         num_segmento_pedido = mensagem_cliente.split("/")[1]
