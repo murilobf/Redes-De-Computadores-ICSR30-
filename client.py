@@ -80,7 +80,7 @@ while True:
     existe_arquivo,address = sock.recvfrom(TAM_BUFFER)
     existe_arquivo = existe_arquivo.decode()
 
-    #O arquivo todo
+    #Mensagem informando que o arquivo existe, quantos segmentos serão enviados no total e o checksum do arquivo ao todo
     header_arquivo, conteudo_arquivo = existe_arquivo.split('|') 
     print(conteudo_arquivo)
     if(header_arquivo.startswith("ERRO")):
@@ -118,7 +118,7 @@ while True:
             lista_segmentos.append(data)
             sock.sendto(f"ACK|{qtde_segmentos_recebidos-1}".encode(),(udp_ip,udp_port))
 
-        print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
+        #print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
 
         if(qtde_segmentos_recebidos == qtde_segmentos): 
             fim_transferencia = True

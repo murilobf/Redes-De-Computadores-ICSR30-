@@ -46,10 +46,7 @@ sock.bind((UDP_IP,UDP_PORT)) #O servidor fica ouvindo nessa porta
 def checksum_crc32(segmento):
     return zlib.crc32(segmento) & 0xffffffff
 
-def ack(address):
-    sock.sendto(b"ACK",address)
-
-#Função para solicitar o reenvio de um segmento perdido/corrompido
+#Função para solicitar o envio ou o reenvio de um segmento perdido/corrompido
 def envio(address,num_segmento,conteudo):
     inicio_segmento = num_segmento * TAM_CONTEUDO
     fim_segmento = inicio_segmento + TAM_CONTEUDO
@@ -60,9 +57,14 @@ def envio(address,num_segmento,conteudo):
     cabecalho = (f"{num_segmento}#{checksum}|").encode("utf-8")
 
     segmento = cabecalho+bloco
-    cache_segmentos.append(segmento)
 
     sock.sendto(segmento, address)
+
+    return segmento
+
+def reenvio(address,num_segmento,conteudo):
+    envio(address,num_segmento,conteudo)
+    
 
 
 #Envia a mensagem no formato (mensagem (IP, PORT))só pra ter como base
@@ -108,9 +110,11 @@ while True:
         #Envia cada segmento do arquivo                
         for num_segmento in range(qtde_segmentos):
 
-            envio(address,num_segmento,conteudo)
+            segmento = envio(address,num_segmento,conteudo)
+            cache_segmentos.append(segmento)
+
             
-            time.sleep(0.001) #TODO: o sleep está aqui temporariamente, o pc não aguenta enviar e receber milhares de pacotes de uma vez só, mas pouco a pouco ele vai
+           # time.sleep(0.001) #TODO: o sleep está aqui temporariamente, o pc não aguenta enviar e receber milhares de pacotes de uma vez só, mas pouco a pouco ele vai
             #TODO: ver o que é e implementar lógica de janela deslizante para controlar isso
 
             #Espera a resposta do cliente informando que recebeu o segmento e qual o último segmento recebeido
@@ -121,7 +125,7 @@ while True:
             #TODO: Implementar mais que 1 tentativa de reenvio
             #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
             except TimeoutError:
-                envio(address,ultimo_recebido,conteudo)
+                sock.sendto(cache_segmentos[ultimo_recebido], address)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
         #TODO: reenviar o segmento pedido
@@ -131,8 +135,8 @@ while True:
         try:
             sock.sendto(cache_segmentos[num_segmento_pedido], address)
         except:
-            sock.sendto("ERRO: segmento não encontrado".encode("utf-8"), address)
+            sock.sendto("ERRO|segmento não encontrado".encode("utf-8"), address)
 
     #Envia mensagem de erro caso o comando seja inválido (diferente de GET)
     else:
-        sock.sendto(("ERRO: Comando inválido").encode("utf-8"), address) 
+        sock.sendto(("ERRO|Comando inválido").encode("utf-8"), address) 
