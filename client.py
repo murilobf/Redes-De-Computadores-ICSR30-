@@ -9,18 +9,16 @@ Requisitos do Cliente UDP:
     TODO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
     Recepção e Montagem:
     FEITO    Receber os segmentos do arquivo enviados pelo servidor.
-    TODO    Armazenar e ordenar os segmentos recebidos corretamente.
+    FEITO    Armazenar e ordenar os segmentos recebidos corretamente.
     FEITO    Verificar a integridade de cada segmento (ex: usando checksum ou resumos criptográficos como o MD5 e SHA.).
     Verificação e Finalização:
     TODO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
-    TODO    Se o arquivo estiver OK: Salvar o arquivo reconstruído localmente e informar o sucesso ao usuário. Opcionalmente, apresentar/abrir o arquivo.
+    FEITO    Se o arquivo estiver OK: Salvar o arquivo reconstruído localmente e informar o sucesso ao usuário. Opcionalmente, apresentar/abrir o arquivo.
     TODO    Se o arquivo estiver com erro ou incompleto:
             Identificar quais segmentos estão faltando ou corrompidos.
     TODO        Solicitar a retransmissão desses segmentos específicos ao servidor, utilizando o protocolo definido.
     TODO        Repetir o processo de recepção e verificação até que o arquivo esteja completo e correto.
-    TODO        Interpretação de Erros: Interpretar e exibir mensagens de erro recebidas do servidor (ex: “Arquivo não encontrado”).
-
-
+    FEITO        Interpretação de Erros: Interpretar e exibir mensagens de erro recebidas do servidor (ex: “Arquivo não encontrado”).
 """
 
 import socket
@@ -107,7 +105,7 @@ while True:
 
         #Se a condição abaixo for verdade, o segmento está corrompido, tem que pedir de novo
         if(checksum != auxChecksum):
-            print("ERRO")
+            print("ERRO de checksum, pedindo segmento novamente")
             sock.sendto(f"RESEND /{num_segmento}", (udp_ip,udp_port))
             
         else:
@@ -120,11 +118,14 @@ while True:
 
             print("Transnferência finalizada, montando arquivo...")
             
-    
-    #TODO: AQUI FICARÁ A PARTE DE RECONSTRUÇÃO DO DOCUMENTO
-    for segmento in lista_segmentos:
-        cabecalho,conteudo = segmento.split("|")
-        with open(f"client/teste.txt", "a") as f:
-            f.write(conteudo)
+    try:
+        for segmento in lista_segmentos:
+            cabecalho,conteudo = segmento.split("|")
+            with open(f"client/teste.txt", "a") as f:
+                f.write(conteudo)
+        print("Arquivo salvo com sucesso")
+
+    except:
+        print("Erro ao salvar documento")
 
     
