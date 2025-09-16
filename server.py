@@ -125,10 +125,12 @@ while True:
             #TODO: Implementar mais que 1 tentativa de reenvio
             #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
             except TimeoutError:
-                sock.sendto(cache_segmentos[ultimo_recebido], address)
+                sock.sendto(cache_segmentos[ultimo_recebido+1], address) #Reenvia o segmento posterior ao último segmento recebido com sucesso
+
+        #print(cache_segmentos)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
-        #TODO: reenviar o segmento pedido
+        
         num_segmento_pedido = mensagem_cliente.split("/")[1]
         print("resend")
 

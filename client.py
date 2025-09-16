@@ -68,10 +68,7 @@ while True:
         print("Formato inválido, insira no formato IP:PORTA")
         continue
 
-
-
 #Loop pra manter a conexão com o servidor
-
 while True:
 
     fim_transferencia = False
@@ -88,6 +85,7 @@ while True:
     else:
         qtde_segmentos = int(header_arquivo.split('#')[1])
         checksum_arquivo = int(header_arquivo.split('#')[2])
+        print(f"Quantidade de segmentos: {qtde_segmentos}. Checksum do arquivo: {checksum_arquivo}")
 
     lista_segmentos = []
     qtde_segmentos_recebidos = 0
@@ -127,10 +125,17 @@ while True:
             print("Transnferência finalizada, montando arquivo...")
             
     try:
+        documento_final = ""
         for segmento in lista_segmentos:
             cabecalho,conteudo = segmento.split("|")
-            with open(f"client/teste.txt", "a") as f:
-                f.write(conteudo)
+            documento_final += conteudo
+
+        checksum_arquivo_final = checksum_crc32(documento_final.encode())
+        print(f"inicial: {checksum_arquivo} # final: {checksum_arquivo_final}")
+
+        with open(f"client/teste.txt","w") as f:
+                f.write(documento_final)
+
         print("Arquivo salvo com sucesso")
 
     except:
