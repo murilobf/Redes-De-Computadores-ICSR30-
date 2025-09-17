@@ -12,10 +12,10 @@ Requisitos do Cliente UDP:
     FEITO    Armazenar e ordenar os segmentos recebidos corretamente.
     FEITO    Verificar a integridade de cada segmento (ex: usando checksum ou resumos criptográficos como o MD5 e SHA.).
     Verificação e Finalização:
-    TODO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
+    FEITO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
     FEITO    Se o arquivo estiver OK: Salvar o arquivo reconstruído localmente e informar o sucesso ao usuário. Opcionalmente, apresentar/abrir o arquivo.
-    TODO    Se o arquivo estiver com erro ou incompleto:
-            Identificar quais segmentos estão faltando ou corrompidos.
+    FEITO    Se o arquivo estiver com erro ou incompleto:
+    TODO    Identificar quais segmentos estão faltando ou corrompidos.
     TODO        Solicitar a retransmissão desses segmentos específicos ao servidor, utilizando o protocolo definido.
     TODO        Repetir o processo de recepção e verificação até que o arquivo esteja completo e correto.
     FEITO        Interpretação de Erros: Interpretar e exibir mensagens de erro recebidas do servidor (ex: “Arquivo não encontrado”).
@@ -41,10 +41,10 @@ sock.settimeout(TIMEOUT_SOCKET) #Timeout do socket
 def checksum_crc32(segmento):
     return zlib.crc32(segmento) & 0xffffffff
 
-def remonta_documento(data):
-    arquivo = lista_segmentos.sort(key=lambda segmento: segmento.split('#',1))
-
-    return arquivo
+def ordena_documento(data):
+    data.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
+    
+    return data
 
 #Loop pra pegar pedir o ip mais de uma vez se precisar
 while True:
@@ -94,6 +94,7 @@ while True:
 
     lista_segmentos = []
     qtde_segmentos_recebidos = 0
+    descartado = 0
 
     #Loop para continuar recebendo dados até o arquivo estar completo
     while not fim_transferencia:
@@ -101,6 +102,9 @@ while True:
 
         #Lógica pra descartar segmentos aleatoriamente
         if(DESCARTAR and random.randint(1,100) > 70):
+            print("Descartado")
+            descartado+=1
+            print(descartado)
             continue
 
         else:
@@ -128,7 +132,7 @@ while True:
         else:
             qtde_segmentos_recebidos += 1
             lista_segmentos.append(data)
-            sock.sendto(f"ACK|{qtde_segmentos_recebidos-1}".encode(),(udp_ip,udp_port))
+            sock.sendto(f"ACK|{qtde_segmentos_recebidos}".encode(),(udp_ip,udp_port)) #Manda o último segmento pedido para o servidor
 
         #print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
 
@@ -139,12 +143,25 @@ while True:
             print("Transnferência finalizada, montando arquivo...")
             
     try:
+        documento_final = ""
+        lista_segmentos = ordena_documento(lista_segmentos)
+
         for segmento in lista_segmentos:
+
             cabecalho,conteudo = segmento.split("|")
-            with open(f"client/teste.txt", "a") as f:
-                f.write(conteudo)
-        print("Arquivo salvo com sucesso")
+            documento_final += conteudo
+
+        checksum_arquivo_final = checksum_crc32(documento_final.encode())
+
+        if(checksum_arquivo_final == checksum_arquivo):
+
+            with open(f"client/teste.txt", "w") as f:
+                f.write(documento_final)
+            print("Arquivo salvo com sucesso")
+        else:
+            print("Erro ao salvar documento. Checksum de verificação do arquivo final diferente do arquivo original. Tente novamente")
+            continue
 
     except:
         print("Erro ao salvar documento")
-
+        

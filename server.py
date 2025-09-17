@@ -17,7 +17,7 @@ Requisitos do Servidor UDP:
     Transmissão do Arquivo (se existir):
     FEITO    Segmentação: Dividir o arquivo em múltiplos segmentos/pedaços para envio em datagramas UDP.
     FEITO    Cabeçalho Customizado: Cada segmento enviado deve conter informações de controle definidas pelo seu protocolo (ver “Considerações de Protocolo” abaixo).
-    TODO    Retransmissão: Implementar lógica para reenviar segmentos específicos caso o cliente solicite (devido a perdas ou erros).
+    FEITO    Retransmissão: Implementar lógica para reenviar segmentos específicos caso o cliente solicite (devido a perdas ou erros).
 
 
 """
@@ -26,7 +26,6 @@ import socket
 import os
 import math
 import zlib
-import time
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
@@ -35,7 +34,7 @@ TAM_BUFFER = 4096
 TAM_CABECALHO = 80 
 TAM_CONTEUDO = TAM_BUFFER - TAM_CABECALHO
 
-TIMEOUT_SOCKET = 1
+TIMEOUT_SOCKET = 0.5
 #80 pois foi verificado que, dependendo da quantidade de caracteres (seja pela quantidade de segmentos ou pelo tamanho do checksum)
 #o cabeçalho pesava cerca de 60 bytes (casos maiores, fora do escopo do trabalho, mas para garantir ficou assim). Foi deixado mais alguns para margem de segurança.
 
@@ -125,6 +124,7 @@ while True:
             #TODO: Implementar mais que 1 tentativa de reenvio
             #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
             except TimeoutError:
+                print("Segmento perdido")
                 sock.sendto(cache_segmentos[ultimo_recebido], address)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
