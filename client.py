@@ -32,7 +32,7 @@ TAM_BUFFER = 4096
 
 TIMEOUT_SOCKET = 1
 
-DESCARTAR = True
+DESCARTAR = False
 
 #Cria o objeto de socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -138,18 +138,23 @@ while True:
 
         if(qtde_segmentos_recebidos == qtde_segmentos): 
             fim_transferencia = True
-            lista_segmentos.sort(key=lambda segmento: segmento.split('#', 1)) #Ordena a lista de acordo com o cabeçalho
+            lista_segmentos.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
 
             print("Transnferência finalizada, montando arquivo...")
             
     try:
         documento_final = ""
-        lista_segmentos = ordena_documento(lista_segmentos)
+        num_segmento_anterior = None
 
         for segmento in lista_segmentos:
 
             cabecalho,conteudo = segmento.split("|")
-            documento_final += conteudo
+
+            #Verifica se os segmentos estão certos (não possuem duplicatas ou faltantes)
+            if(num_segmento_anterior not None and cabecalho.split("#")[1] != lista_segmentos[num_segmento_anterior-1]):
+                print("a")
+            else:
+                documento_final += conteudo
 
         checksum_arquivo_final = checksum_crc32(documento_final.encode())
 
@@ -158,6 +163,7 @@ while True:
             with open(f"client/teste.txt", "w") as f:
                 f.write(documento_final)
             print("Arquivo salvo com sucesso")
+
         else:
             print("Erro ao salvar documento. Checksum de verificação do arquivo final diferente do arquivo original. Tente novamente")
             continue

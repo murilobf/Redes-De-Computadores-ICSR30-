@@ -112,10 +112,6 @@ while True:
             segmento = envio(address,num_segmento,conteudo)
             cache_segmentos.append(segmento)
 
-            
-           # time.sleep(0.001) #TODO: o sleep está aqui temporariamente, o pc não aguenta enviar e receber milhares de pacotes de uma vez só, mas pouco a pouco ele vai
-            #TODO: ver o que é e implementar lógica de janela deslizante para controlar isso
-
             #Espera a resposta do cliente informando que recebeu o segmento e qual o último segmento recebeido
             try:
                 confirmacao,address = sock.recvfrom(TAM_BUFFER)
@@ -123,12 +119,12 @@ while True:
                 ultimo_recebido = confirmacao.split("|")[1]
             #TODO: Implementar mais que 1 tentativa de reenvio
             #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
-            except TimeoutError:
+            except socket.timeout:
                 print("Segmento perdido")
-                sock.sendto(cache_segmentos[ultimo_recebido], address)
+                sock.sendto(cache_segmentos[int(ultimo_recebido)+1], address)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
-        #TODO: reenviar o segmento pedido
+
         num_segmento_pedido = mensagem_cliente.split("/")[1]
         print("resend")
 
