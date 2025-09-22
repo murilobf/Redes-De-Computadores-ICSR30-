@@ -32,7 +32,7 @@ TAM_BUFFER = 4096
 
 TIMEOUT_SOCKET = 1
 
-DESCARTAR = False
+DESCARTAR = True
 
 #Cria o objeto de socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
@@ -83,6 +83,7 @@ while True:
     #Mensagem informando que o arquivo existe, quantos segmentos serão enviados no total e o checksum do arquivo ao todo
     header_arquivo, conteudo_arquivo = existe_arquivo.split('|') 
     print(conteudo_arquivo)
+    
     if(header_arquivo.startswith("ERRO")):
         continue
     else:
@@ -97,18 +98,23 @@ while True:
     #Loop para continuar recebendo dados até o arquivo estar completo
     while not fim_transferencia:
         recebido = False
-
+        data,address = sock.recvfrom(TAM_BUFFER)
+        
+        if(data.decode().startswith("FIM")):
+            fim_transferencia = True
+            break
+        
         #Lógica pra descartar segmentos aleatoriamente
-        if(DESCARTAR and random.randint(1,100) > 70):
+        random_descartar = random.randint(1,100)
+        if(DESCARTAR and random_descartar > 95):
             print("Descartado")
             descartado+=1
             print(descartado)
             continue
 
         else:
-            data,address = sock.recvfrom(TAM_BUFFER) 
-            
             data = data.decode("utf-8")
+            #print(data)
 
             header,conteudo = data.split('|',maxsplit=1)
             
@@ -119,26 +125,24 @@ while True:
 
             recebido = True
 
-        #print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
-        # print(data)
+            #print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
+            # print(data)
 
-        #Se a condição abaixo for verdade, o segmento está corrompido, tem que pedir de novo
-        if(checksum != auxChecksum):
-            print("ERRO de checksum, pedindo segmento novamente")
-            sock.sendto(f"RESEND /{num_segmento}".encode(), (udp_ip,udp_port))
-            
-        else:
-            qtde_segmentos_recebidos += 1
-            lista_segmentos.append(data)
-            sock.sendto(f"ACK|{qtde_segmentos_recebidos}".encode(),(udp_ip,udp_port)) #Manda o último segmento pedido para o servidor
+            #Se a condição abaixo for verdade, o segmento está corrompido, tem que pedir de novo
+            if(checksum != auxChecksum):
+                print("ERRO de checksum, pedindo segmento novamente")
+                sock.sendto(f"RESEND /{num_segmento}".encode(), (udp_ip,udp_port))
+                
+            else:
+                qtde_segmentos_recebidos += 1
+                lista_segmentos.append(data)
+                sock.sendto(f"ACK|{qtde_segmentos_recebidos}".encode(),(udp_ip,udp_port)) #Manda o numero do último segmento recebido para o servidor
 
-        #print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
+            print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
 
-        if(qtde_segmentos_recebidos == qtde_segmentos): 
-            fim_transferencia = True
-            lista_segmentos.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
 
-            print("Transnferência finalizada, montando arquivo...")
+    print("Transnferência finalizada, montando arquivo...")
+    lista_segmentos.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
             
     try:
         documento_final = ""
@@ -149,7 +153,7 @@ while True:
             cabecalho,conteudo = segmento.split("|")
 
             #Verifica se os segmentos estão certos (não possuem duplicatas ou faltantes)
-            if(num_segmento_anterior not None and cabecalho.split("#")[1] != lista_segmentos[num_segmento_anterior-1]):
+            if(num_segmento_anterior != None and cabecalho.split("#")[1] != lista_segmentos[num_segmento_anterior-1]):
                 print("a")
             else:
                 documento_final += conteudo

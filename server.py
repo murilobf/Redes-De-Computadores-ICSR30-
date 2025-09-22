@@ -34,7 +34,9 @@ TAM_BUFFER = 4096
 TAM_CABECALHO = 80 
 TAM_CONTEUDO = TAM_BUFFER - TAM_CABECALHO
 
-TIMEOUT_SOCKET = 0.5
+MAX_TENTATIVAS = 3
+
+TIMEOUT_SOCKET = 0.2
 #80 pois foi verificado que, dependendo da quantidade de caracteres (seja pela quantidade de segmentos ou pelo tamanho do checksum)
 #o cabeçalho pesava cerca de 60 bytes (casos maiores, fora do escopo do trabalho, mas para garantir ficou assim). Foi deixado mais alguns para margem de segurança.
 
@@ -106,22 +108,40 @@ while True:
 
         #Se o socket levar mais que TIMEOUT_SOCKET pra responder ele vai entender que o cliente não recebeu e tentar reenviar
         sock.settimeout(TIMEOUT_SOCKET)
-        #Envia cada segmento do arquivo                
+        #Envia cada segmento do arquivo
+        ultimo_recebido = 0   
+        qtde_recebidos = 0     
+        # Dentro do loop de envio dos segmentos
         for num_segmento in range(qtde_segmentos):
+            segmento = envio(address, num_segmento, conteudo)
+            cache_segmentos.append(segmento)  # Guarda o segmento no cache para reenvio
 
-            segmento = envio(address,num_segmento,conteudo)
-            cache_segmentos.append(segmento)
+            tentativas = 0
+            while tentativas < MAX_TENTATIVAS:
+                try:
+                    confirmacao, address = sock.recvfrom(TAM_BUFFER)
+                    confirmacao = confirmacao.decode()
 
-            #Espera a resposta do cliente informando que recebeu o segmento e qual o último segmento recebeido
-            try:
-                confirmacao,address = sock.recvfrom(TAM_BUFFER)
-                confirmacao = confirmacao.decode()
-                ultimo_recebido = confirmacao.split("|")[1]
-            #TODO: Implementar mais que 1 tentativa de reenvio
-            #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
-            except socket.timeout:
-                print("Segmento perdido")
-                sock.sendto(cache_segmentos[int(ultimo_recebido)+1], address)
+                    # Extrai o número do último segmento confirmado
+                    if confirmacao.startswith("ACK"):
+                        ultimo_recebido = int(confirmacao.split("|")[1])
+                        print(f"ACK recebido para o segmento {ultimo_recebido}")
+                        break  # Confirmação recebida, segue para o próximo segmento
+
+                except socket.timeout:
+                    print(f"Timeout no segmento {num_segmento}. Tentando reenviar...")
+                    # Timeout ocorreu, reenviando o segmento
+                    sock.sendto(cache_segmentos[num_segmento], address)
+                    tentativas += 1
+
+            if tentativas == MAX_TENTATIVAS:
+                print(f"Falha ao receber confirmação para o segmento {num_segmento} após {MAX_TENTATIVAS} tentativas.")
+                break  # Pode decidir parar ou lidar com o erro conforme necessário
+
+
+        #Mensagem de fim
+        print(f"Quantiadde recebidos = {qtde_recebidos}")
+        sock.sendto(b"FIM",address)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
 
