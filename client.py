@@ -1,26 +1,3 @@
-"""
-Requisitos do Cliente UDP:
-
-    Inicialização: O cliente deve ser executado após o servidor estar ativo.
-    FEITO Conexão: Permitir que o usuário especifique o endereço IP e a porta do servidor UDP ao qual deseja se conectar.
-    Requisição:
-        Enviar uma requisição ao servidor, utilizando o protocolo de aplicação definido, para solicitar um arquivo específico (Exemplo de entrada do usuário: @IP_Servidor:Porta_Servidor/nome_do_arquivo.ext).
-    Simulação de Perda:
-    FEITO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
-    Recepção e Montagem:
-    FEITO    Receber os segmentos do arquivo enviados pelo servidor.
-    FEITO    Armazenar e ordenar os segmentos recebidos corretamente.
-    FEITO    Verificar a integridade de cada segmento (ex: usando checksum ou resumos criptográficos como o MD5 e SHA.).
-    Verificação e Finalização:
-    FEITO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
-    FEITO    Se o arquivo estiver OK: Salvar o arquivo reconstruído localmente e informar o sucesso ao usuário. Opcionalmente, apresentar/abrir o arquivo.
-    FEITO    Se o arquivo estiver com erro ou incompleto:
-    TODO    Identificar quais segmentos estão faltando ou corrompidos.
-    TODO        Solicitar a retransmissão desses segmentos específicos ao servidor, utilizando o protocolo definido.
-    TODO        Repetir o processo de recepção e verificação até que o arquivo esteja completo e correto.
-    FEITO        Interpretação de Erros: Interpretar e exibir mensagens de erro recebidas do servidor (ex: “Arquivo não encontrado”).
-"""
-
 import socket
 import zlib
 import random
@@ -31,6 +8,8 @@ UDP_PORT = 5005
 TAM_BUFFER = 4096
 
 TIMEOUT_SOCKET = 1
+
+MAX_TENTATIVAS = 3
 
 DESCARTAR = True
 
@@ -148,31 +127,62 @@ while True:
     documento_final = ""
     num_segmento_anterior = None
 
-    for segmento in lista_segmentos:
+    # Verifica se o documento está certo (tenta fazer isso uma quantidade máxima de vezes)
+    tentativas = 0
+    while tentativas < MAX_TENTATIVAS:
+        documento_final = ""
+        num_segmento_anterior = None
 
-        cabecalho,conteudo = segmento.split("|")
+        # --- Remove duplicatas mantendo apenas o último segmento válido ---
+        segmentos_unicos = {}
+        for segmento in lista_segmentos:
+            cabecalho, conteudo = segmento.split("|", maxsplit=1)
+            num_segmento = int(cabecalho.split("#")[0])
+            segmentos_unicos[num_segmento] = segmento  # sobrescreve duplicatas
 
-        #Verifica se os segmentos estão certos (não possuem duplicatas ou faltantes)
-        #Vê primeiro se não falta algum segmento (como está ordenado)
-        if(num_segmento_anterior != None and int(cabecalho.split("#")[0]) != int(lista_segmentos[int(num_segmento_anterior)-1].split("#")[0])):
-            print("a")
-        else:
+        # Recria a lista ordenada sem duplicatas
+        lista_segmentos = [seg for _, seg in sorted(segmentos_unicos.items())]
+
+        # --- Identifica segmentos faltantes ---
+        segmentos_recebidos = set(segmentos_unicos.keys())
+        segmentos_esperados = set(range(qtde_segmentos))
+        faltantes = sorted(list(segmentos_esperados - segmentos_recebidos))
+
+        if faltantes:
+            print(f"Segmentos faltantes detectados: {faltantes}")
+            for num in faltantes:
+                sock.sendto(f"RESEND /{num}".encode(), (udp_ip, udp_port))
+
+            # Espera os segmentos reenviados
+            try:
+                while faltantes:
+                    data, address = sock.recvfrom(TAM_BUFFER)
+                    if data.decode().startswith("FIM"):
+                        break
+                    header, conteudo = data.decode("utf-8").split("|", maxsplit=1)
+                    num_segmento, checksum = map(int, header.split("#"))
+
+                    auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
+                    if checksum == auxChecksum:
+                        lista_segmentos.append(data.decode("utf-8"))
+                        if num_segmento in faltantes:
+                            faltantes.remove(num_segmento)
+                            sock.sendto(f"ACK|{num_segmento}".encode(), (udp_ip, udp_port))
+            except socket.timeout:
+                print("Timeout aguardando segmentos faltantes.")
+
+        # --- Reconstrói o documento com os segmentos válidos ---
+        lista_segmentos.sort(key=lambda segmento: int(segmento.split('#', 1)[0]))
+        for segmento in lista_segmentos:
+            cabecalho, conteudo = segmento.split("|", maxsplit=1)
             documento_final += conteudo
 
-        num_segmento_anterior = int(cabecalho.split("#")[0])
-
-    checksum_arquivo_final = checksum_crc32(documento_final.encode())
-
-    if(checksum_arquivo_final == checksum_arquivo):
-
-        with open(f"client/teste.txt", "w") as f:
-            f.write(documento_final)
-        print("Arquivo salvo com sucesso")
-
-    else:
-        print("Erro ao salvar documento. Checksum de verificação do arquivo final diferente do arquivo original. Tente novamente")
-        continue
-
-    #except:
-    #    print("Erro ao salvar documento")
-        
+        checksum_arquivo_final = checksum_crc32(documento_final.encode())
+        if checksum_arquivo_final == checksum_arquivo and len(lista_segmentos) == qtde_segmentos:
+            with open(f"client/teste.txt", "w") as f:
+                f.write(documento_final)
+            print("Arquivo salvo com sucesso")
+            break
+        else:
+            print("Arquivo incompleto ou corrompido, tentando novamente...")
+            tentativas += 1

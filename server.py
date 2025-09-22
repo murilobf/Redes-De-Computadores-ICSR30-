@@ -1,27 +1,3 @@
-"""
-FONTES: 
-https://wiki.python.org/moin/UdpCommunication
-"""
-
-"""
-Requisitos do Servidor UDP:
-
-    Inicialização: O servidor deve ser executado antes do cliente.
-    FEITO Porta: Deve operar em uma porta UDP especificada, com número maior que 1024 (portas abaixo de 1024 geralmente exigem privilégios de administrador).
-    Recepção e Protocolo:
-    FEITO    Aguardar conexões/mensagens de clientes.
-    FEITO    Interpretar as requisições recebidas. É necessário definir e implementar um protocolo de aplicação simples sobre UDP para que o cliente requisite arquivos (Exemplo de formato de requisição: GET /nome_do_arquivo.ext).
-    Processamento da Requisição:
-    FEITO    Verificar se o arquivo solicitado existe.
-    FEITO       Se o arquivo não existir: Enviar uma mensagem de erro claramente definida pelo seu protocolo para o cliente.
-    Transmissão do Arquivo (se existir):
-    FEITO    Segmentação: Dividir o arquivo em múltiplos segmentos/pedaços para envio em datagramas UDP.
-    FEITO    Cabeçalho Customizado: Cada segmento enviado deve conter informações de controle definidas pelo seu protocolo (ver “Considerações de Protocolo” abaixo).
-    FEITO    Retransmissão: Implementar lógica para reenviar segmentos específicos caso o cliente solicite (devido a perdas ou erros).
-
-
-"""
-
 import socket
 import os
 import math
@@ -140,13 +116,12 @@ while True:
 
 
         #Mensagem de fim
-        print(f"Quantiadde recebidos = {qtde_recebidos}")
         sock.sendto(b"FIM",address)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
 
         num_segmento_pedido = mensagem_cliente.split("/")[1]
-        print("resend")
+        print(f"Reenviando o segmento de número {num_segmento_pedido}")
 
         try:
             sock.sendto(cache_segmentos[num_segmento_pedido], address)
