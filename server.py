@@ -125,7 +125,7 @@ while True:
                     # Extrai o número do último segmento confirmado
                     if confirmacao.startswith("ACK"):
                         ultimo_recebido = int(confirmacao.split("|")[1])
-                        print(f"ACK recebido para o segmento {ultimo_recebido}")
+                        #print(f"ACK recebido para o segmento {ultimo_recebido}")
                         break  # Confirmação recebida, segue para o próximo segmento
 
                 except socket.timeout:

@@ -144,32 +144,35 @@ while True:
     print("Transnferência finalizada, montando arquivo...")
     lista_segmentos.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
             
-    try:
-        documento_final = ""
-        num_segmento_anterior = None
+    #try:
+    documento_final = ""
+    num_segmento_anterior = None
 
-        for segmento in lista_segmentos:
+    for segmento in lista_segmentos:
 
-            cabecalho,conteudo = segmento.split("|")
+        cabecalho,conteudo = segmento.split("|")
 
-            #Verifica se os segmentos estão certos (não possuem duplicatas ou faltantes)
-            if(num_segmento_anterior != None and cabecalho.split("#")[1] != lista_segmentos[num_segmento_anterior-1]):
-                print("a")
-            else:
-                documento_final += conteudo
-
-        checksum_arquivo_final = checksum_crc32(documento_final.encode())
-
-        if(checksum_arquivo_final == checksum_arquivo):
-
-            with open(f"client/teste.txt", "w") as f:
-                f.write(documento_final)
-            print("Arquivo salvo com sucesso")
-
+        #Verifica se os segmentos estão certos (não possuem duplicatas ou faltantes)
+        #Vê primeiro se não falta algum segmento (como está ordenado)
+        if(num_segmento_anterior != None and int(cabecalho.split("#")[0]) != int(lista_segmentos[int(num_segmento_anterior)-1].split("#")[0])):
+            print("a")
         else:
-            print("Erro ao salvar documento. Checksum de verificação do arquivo final diferente do arquivo original. Tente novamente")
-            continue
+            documento_final += conteudo
 
-    except:
-        print("Erro ao salvar documento")
+        num_segmento_anterior = int(cabecalho.split("#")[0])
+
+    checksum_arquivo_final = checksum_crc32(documento_final.encode())
+
+    if(checksum_arquivo_final == checksum_arquivo):
+
+        with open(f"client/teste.txt", "w") as f:
+            f.write(documento_final)
+        print("Arquivo salvo com sucesso")
+
+    else:
+        print("Erro ao salvar documento. Checksum de verificação do arquivo final diferente do arquivo original. Tente novamente")
+        continue
+
+    #except:
+    #    print("Erro ao salvar documento")
         
