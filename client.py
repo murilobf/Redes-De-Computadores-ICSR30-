@@ -6,16 +6,16 @@ Requisitos do Cliente UDP:
     Requisição:
         Enviar uma requisição ao servidor, utilizando o protocolo de aplicação definido, para solicitar um arquivo específico (Exemplo de entrada do usuário: @IP_Servidor:Porta_Servidor/nome_do_arquivo.ext).
     Simulação de Perda:
-    TODO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
+    FEITO    Implementar uma opção (ex: via entrada do usuário ou configuração) que permita ao cliente descartar intencionalmente alguns segmentos recebidos do servidor. Isso é crucial para testar o mecanismo de recuperação de dados. A interface deve informar quais segmentos (ex: por número de sequência) estão sendo descartados.
     Recepção e Montagem:
     FEITO    Receber os segmentos do arquivo enviados pelo servidor.
     FEITO    Armazenar e ordenar os segmentos recebidos corretamente.
     FEITO    Verificar a integridade de cada segmento (ex: usando checksum ou resumos criptográficos como o MD5 e SHA.).
     Verificação e Finalização:
-    TODO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
+    FEITO    Após receber todos os segmentos esperados (ou um sinal de fim de transmissão do servidor), verificar a integridade e completude do arquivo.
     FEITO    Se o arquivo estiver OK: Salvar o arquivo reconstruído localmente e informar o sucesso ao usuário. Opcionalmente, apresentar/abrir o arquivo.
-    TODO    Se o arquivo estiver com erro ou incompleto:
-            Identificar quais segmentos estão faltando ou corrompidos.
+    FEITO    Se o arquivo estiver com erro ou incompleto:
+    TODO    Identificar quais segmentos estão faltando ou corrompidos.
     TODO        Solicitar a retransmissão desses segmentos específicos ao servidor, utilizando o protocolo definido.
     TODO        Repetir o processo de recepção e verificação até que o arquivo esteja completo e correto.
     FEITO        Interpretação de Erros: Interpretar e exibir mensagens de erro recebidas do servidor (ex: “Arquivo não encontrado”).
@@ -23,6 +23,7 @@ Requisitos do Cliente UDP:
 
 import socket
 import zlib
+import random
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
@@ -31,6 +32,8 @@ TAM_BUFFER = 4096
 
 TIMEOUT_SOCKET = 1
 
+DESCARTAR = False
+
 #Cria o objeto de socket
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM) 
 sock.settimeout(TIMEOUT_SOCKET) #Timeout do socket
@@ -38,10 +41,10 @@ sock.settimeout(TIMEOUT_SOCKET) #Timeout do socket
 def checksum_crc32(segmento):
     return zlib.crc32(segmento) & 0xffffffff
 
-def remonta_documento(data):
-    arquivo = lista_segmentos.sort(key=lambda segmento: segmento.split('#',1))
-
-    return arquivo
+def ordena_documento(data):
+    data.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
+    
+    return data
 
 #Loop pra pegar pedir o ip mais de uma vez se precisar
 while True:
@@ -89,19 +92,32 @@ while True:
 
     lista_segmentos = []
     qtde_segmentos_recebidos = 0
+    descartado = 0
 
     #Loop para continuar recebendo dados até o arquivo estar completo
     while not fim_transferencia:
-        data,address = sock.recvfrom(TAM_BUFFER) 
-        
-        data = data.decode("utf-8")
+        recebido = False
 
-        header,conteudo = data.split('|',maxsplit=1)
-        
-        num_segmento, checksum = header.split('#')
-        num_segmento, checksum = int(num_segmento), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
+        #Lógica pra descartar segmentos aleatoriamente
+        if(DESCARTAR and random.randint(1,100) > 70):
+            print("Descartado")
+            descartado+=1
+            print(descartado)
+            continue
 
-        auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
+        else:
+            data,address = sock.recvfrom(TAM_BUFFER) 
+            
+            data = data.decode("utf-8")
+
+            header,conteudo = data.split('|',maxsplit=1)
+            
+            num_segmento, checksum = header.split('#')
+            num_segmento, checksum = int(num_segmento), int(checksum) #O cabeçalho vem em string, reconverte-os pra int
+
+            auxChecksum = checksum_crc32(conteudo.encode("utf-8"))
+
+            recebido = True
 
         #print(f"Checksum Header:{checksum}; Checksum Aqui: {auxChecksum}; Número do segmento atual: {num_segmento}")
         # print(data)
@@ -114,30 +130,42 @@ while True:
         else:
             qtde_segmentos_recebidos += 1
             lista_segmentos.append(data)
-            sock.sendto(f"ACK|{qtde_segmentos_recebidos-1}".encode(),(udp_ip,udp_port))
+            sock.sendto(f"ACK|{qtde_segmentos_recebidos}".encode(),(udp_ip,udp_port)) #Manda o último segmento pedido para o servidor
 
         #print(f"{qtde_segmentos_recebidos}/{qtde_segmentos}")
 
         if(qtde_segmentos_recebidos == qtde_segmentos): 
             fim_transferencia = True
-            lista_segmentos.sort(key=lambda segmento: segmento.split('#', 1)) #Ordena a lista de acordo com o cabeçalho
+            lista_segmentos.sort(key=lambda segmento: int(segmento.split('#',1)[0]))
 
             print("Transnferência finalizada, montando arquivo...")
             
     try:
         documento_final = ""
+        num_segmento_anterior = None
+
         for segmento in lista_segmentos:
+
             cabecalho,conteudo = segmento.split("|")
-            documento_final += conteudo
+
+            #Verifica se os segmentos estão certos (não possuem duplicatas ou faltantes)
+            if(num_segmento_anterior not None and cabecalho.split("#")[1] != lista_segmentos[num_segmento_anterior-1]):
+                print("a")
+            else:
+                documento_final += conteudo
 
         checksum_arquivo_final = checksum_crc32(documento_final.encode())
-        print(f"inicial: {checksum_arquivo} # final: {checksum_arquivo_final}")
 
-        with open(f"client/teste.txt","w") as f:
+        if(checksum_arquivo_final == checksum_arquivo):
+
+            with open(f"client/teste.txt", "w") as f:
                 f.write(documento_final)
+            print("Arquivo salvo com sucesso")
 
-        print("Arquivo salvo com sucesso")
+        else:
+            print("Erro ao salvar documento. Checksum de verificação do arquivo final diferente do arquivo original. Tente novamente")
+            continue
 
     except:
         print("Erro ao salvar documento")
-
+        

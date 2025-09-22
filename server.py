@@ -17,7 +17,7 @@ Requisitos do Servidor UDP:
     Transmissão do Arquivo (se existir):
     FEITO    Segmentação: Dividir o arquivo em múltiplos segmentos/pedaços para envio em datagramas UDP.
     FEITO    Cabeçalho Customizado: Cada segmento enviado deve conter informações de controle definidas pelo seu protocolo (ver “Considerações de Protocolo” abaixo).
-    TODO    Retransmissão: Implementar lógica para reenviar segmentos específicos caso o cliente solicite (devido a perdas ou erros).
+    FEITO    Retransmissão: Implementar lógica para reenviar segmentos específicos caso o cliente solicite (devido a perdas ou erros).
 
 
 """
@@ -26,7 +26,6 @@ import socket
 import os
 import math
 import zlib
-import time
 
 UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
@@ -35,7 +34,7 @@ TAM_BUFFER = 4096
 TAM_CABECALHO = 80 
 TAM_CONTEUDO = TAM_BUFFER - TAM_CABECALHO
 
-TIMEOUT_SOCKET = 1
+TIMEOUT_SOCKET = 0.5
 #80 pois foi verificado que, dependendo da quantidade de caracteres (seja pela quantidade de segmentos ou pelo tamanho do checksum)
 #o cabeçalho pesava cerca de 60 bytes (casos maiores, fora do escopo do trabalho, mas para garantir ficou assim). Foi deixado mais alguns para margem de segurança.
 
@@ -64,7 +63,7 @@ def envio(address,num_segmento,conteudo):
 
 def reenvio(address,num_segmento,conteudo):
     envio(address,num_segmento,conteudo)
-    
+    #TODO implementar lógica de limite de tentativas (talvez seja mais fácil fazer isso direto no loop principal, mas tentar fazer aqui pra ficar mais legível)
 
 
 #Envia a mensagem no formato (mensagem (IP, PORT))só pra ter como base
@@ -113,10 +112,6 @@ while True:
             segmento = envio(address,num_segmento,conteudo)
             cache_segmentos.append(segmento)
 
-            
-           # time.sleep(0.001) #TODO: o sleep está aqui temporariamente, o pc não aguenta enviar e receber milhares de pacotes de uma vez só, mas pouco a pouco ele vai
-            #TODO: ver o que é e implementar lógica de janela deslizante para controlar isso
-
             #Espera a resposta do cliente informando que recebeu o segmento e qual o último segmento recebeido
             try:
                 confirmacao,address = sock.recvfrom(TAM_BUFFER)
@@ -124,13 +119,12 @@ while True:
                 ultimo_recebido = confirmacao.split("|")[1]
             #TODO: Implementar mais que 1 tentativa de reenvio
             #TODO: Se houverem mais que n tentativas seguidas de reenvio sem sucesso há algum problema na rede/cliente, deve-se parar o envio
-            except TimeoutError:
-                sock.sendto(cache_segmentos[ultimo_recebido+1], address) #Reenvia o segmento posterior ao último segmento recebido com sucesso
-
-        #print(cache_segmentos)
+            except socket.timeout:
+                print("Segmento perdido")
+                sock.sendto(cache_segmentos[int(ultimo_recebido)+1], address)
                 
     elif(mensagem_cliente.startswith("RESEND /")):
-        
+
         num_segmento_pedido = mensagem_cliente.split("/")[1]
         print("resend")
 
