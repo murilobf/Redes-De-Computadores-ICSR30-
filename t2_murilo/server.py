@@ -87,7 +87,7 @@ def processar(conexao, endereco):
 
 #Cria servidor e binda na porta
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-servidor.bind(("0.0.0.0", 5000))
+servidor.bind(("127.0.0.1", 5005))
 servidor.listen(0)
 
 clientes_conectados = []
@@ -98,6 +98,6 @@ while True:
     print("\nAguardando novo cliente\n")
     conexao, endereco = servidor.accept()
 
-    print(f"Criando thread para cliente {conexao}")
+    print(f"Criando thread para cliente {endereco}")
     thread_cliente = threading.Thread(target=processar, args=(conexao,endereco))
     thread_cliente.start()
