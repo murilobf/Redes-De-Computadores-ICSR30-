@@ -79,6 +79,8 @@ def processar(conexao, endereco):
                     _, mensagem = dado.split("|")
 
                     print(f"MENSAGEM DE [{endereco}]: {mensagem}")
+                    msg_ok = b"OK|Mensagem recebida com sucesso!"
+                    conexao.sendall(msg_ok)
                     
                 elif dado.startswith("SAIR"):
                     print(f"SAIR: CLIENTE {endereco} se desconectou")

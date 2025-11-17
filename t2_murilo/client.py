@@ -34,8 +34,8 @@ while pedido != "SAIR":
     sock_cliente.sendall(pedido)
     resposta = sock_cliente.recv(TAM_BUFFER).decode()
 
-    if(resposta.startswith("ERRO") or resposta.startswith("BROADCAST")):
-        print(resposta)
+    if(resposta.startswith("ERRO") or resposta.startswith("BROADCAST") or resposta.startswith("OK")):
+        print(f"\n{resposta}\n")
     
     elif(resposta.startswith("INICIO")):
         print(f"{resposta}\n\n")
