@@ -34,10 +34,18 @@ while pedido != "SAIR":
     sock_cliente.sendall(pedido)
     resposta = sock_cliente.recv(TAM_BUFFER).decode()
 
-    if(resposta.startswith("ERRO") or resposta.startswith("BROADCAST") or resposta.startswith("INICIO") or resposta.startswith("FIM")):
+    if(resposta.startswith("ERRO") or resposta.startswith("BROADCAST")):
         print(resposta)
     
-    #elif(resposta.startswith("")):
-        
+    elif(resposta.startswith("INICIO")):
+        print(f"{resposta}\n\n")
+
+        while True:
+            resposta = sock_cliente.recv(TAM_BUFFER).decode()
+            if(resposta.startswith("FIM")):
+                print(resposta)
+                break
+
+            print(resposta) #print aqui temporariamente, deve-se salvar o arquivo
 
 print("Desconectado do servidor. Encerrando programa")

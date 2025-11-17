@@ -55,15 +55,22 @@ def processar(conexao, endereco):
                         continue
 
                     else:
-                        with open(caminho_arquivo, 'r') as arquivo:
-                            conteudo = arquivo.read().encode()
+                        with open(caminho_arquivo, 'rb') as arquivo:
+                            conteudo = arquivo.read()
                             tam_arquivo = formata_tamanho(len(conteudo))
                             sha_arquivo = sha256(conteudo)
 
                             msg_inicio = f"INICIO|Tamanho: {tam_arquivo}#hash sha256:{sha_arquivo}".encode()
                             conexao.sendall(msg_inicio)
 
-                            conexao.sendall(conteudo) #TODO: tem que mandar 4KB por vez
+                            conexao.sendall(conteudo) 
+                            while True:
+                                bloco = arquivo.read(TAM_BUFFER)
+                                
+                                if not bloco:
+                                    break
+
+                                conexao.sendall(bloco)
 
                             msg_fim = b"FIM|Transferencia finalizada."
                             conexao.sendall(msg_fim)
