@@ -11,7 +11,7 @@ def sha256(dado):
 
 def broadcast(mensagem):
     
-    mensagem_formatada = f'SERVIDOR|{mensagem}'.encode()
+    mensagem_formatada = f'BROADCAST|{mensagem}'.encode()
 
     with clientes_lock:
         for cliente in clientes_conectados:
@@ -28,11 +28,10 @@ def formata_tamanho(tamanho_bytes):
             
         tamanho_bytes /= 1024
 
-    return round(formatado,2)
+    return formatado
 
 
 def processar(conexao, endereco):
-    #asd
     with clientes_lock:
         clientes_conectados.append(conexao)
 
@@ -41,43 +40,50 @@ def processar(conexao, endereco):
             dado = conexao.recv(TAM_BUFFER)
             
             if not dado:
-                print(f"Cliente {conexao} desconectado. Eliminando thread.")
+                print(f"Cliente {endereco} desconectado. Eliminando thread.")
                 break
 
             dado = dado.decode()
 
-            if dado.startswith("GET"):
-                _, caminho_arquivo = dado.split("|")
+            try:
+                if dado.startswith("GET|"):
+                    _, caminho_arquivo = dado.split("|")
 
-                if not os.path.exists(caminho_arquivo):
-                    msg_erro = f"ERRO 404|Arquivo solicitado nao encontrado. Caminho inserido: {caminho_arquivo}".encode()
-                    conexao.sendall(msg_erro)
-                    continue
+                    if not os.path.exists(caminho_arquivo):
+                        msg_erro = f"ERRO 404|Arquivo solicitado nao encontrado. Caminho inserido: {caminho_arquivo}".encode()
+                        conexao.sendall(msg_erro)
+                        continue
+
+                    else:
+                        with open(caminho_arquivo, 'r') as arquivo:
+                            conteudo = arquivo.read().encode()
+                            tam_arquivo = formata_tamanho(len(conteudo))
+                            sha_arquivo = sha256(conteudo)
+
+                            msg_inicio = f"INICIO|Tamanho: {tam_arquivo}#hash sha256:{sha_arquivo}".encode()
+                            conexao.sendall(msg_inicio)
+
+                            conexao.sendall(conteudo) #TODO: tem que mandar 4KB por vez
+
+                            msg_fim = b"FIM|Transferencia finalizada."
+                            conexao.sendall(msg_fim)
+                        
+                elif dado.startswith("CHAT"):
+                    _, mensagem = dado.split("|")
+
+                    print(f"MENSAGEM DE [{endereco}]: {mensagem}")
+                    
+                elif dado.startswith("SAIR"):
+                    print(f"SAIR: CLIENTE {endereco} se desconectou")
+                    break
 
                 else:
-                    with open(caminho_arquivo, 'r') as arquivo:
-                        conteudo = arquivo.read().encode()
-                        tam_arquivo = formata_tamanho(len(conteudo))
-                        sha_arquivo = sha256(conteudo)
+                    msg_erro = f"ERRO 400|Comando invalido".encode()
 
-                        ack_inicio = f"INICIO|tamanho: {tam_arquivo}#hash sha256:{sha_arquivo}".encode()
-                        conexao.sendall(ack_inicio)
-
-                        conexao.sendall(conteudo) #TODO: tem que mandar 4KB por vez
-                    
-            elif dado.startswith("CHAT"):
-                _, mensagem = dado.split("|")
-
-                print(f"MENSAGEM DE [{endereco}]: {mensagem}")
-                
-            elif dado.startswith("SAIR"):
-                _, mensagem = dado.split("|")
-
-                print(f"SAIR: CLIENTE {endereco} se desconectou")
-                break
-
-            else:
-                msg_erro = f"ERRO 400|Comando invalido"
+                    conexao.sendall(msg_erro)
+            except Exception as e:
+                print(e)
+                msg_erro = f"ERRO 400|Comando invalido".encode()
 
                 conexao.sendall(msg_erro)
                

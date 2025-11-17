@@ -3,18 +3,18 @@ import socket
 TAM_BUFFER = 4096
 TEMPO_TIMEOUT = 2
 
-cliente = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-cliente.settimeout(TEMPO_TIMEOUT)
+sock_cliente = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+sock_cliente.settimeout(TEMPO_TIMEOUT)
 
 while True:
-    conexao = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005). ").strip()
+    endereco = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005). ").strip()
 
     try:
-        ip,port = conexao.split(":")
+        ip,port = endereco.split(":")
         port = int(port)
 
         try:
-            cliente.connect((ip,port))
+            sock_cliente.connect((ip,port))
             break
 
         except (socket.timeout, OSError):
@@ -28,6 +28,16 @@ while True:
 
 pedido = ""
 while pedido != "SAIR":
-    pedido = input()
+    pedido = input("Faça alguma requisição. \n" \
+    "Requisições aceitas: GET|arquivo.ext; CHAT|lorem ipsum; SAIR;").encode()
+
+    sock_cliente.sendall(pedido)
+    resposta = sock_cliente.recv(TAM_BUFFER).decode()
+
+    if(resposta.startswith("ERRO") or resposta.startswith("BROADCAST") or resposta.startswith("INICIO") or resposta.startswith("FIM")):
+        print(resposta)
+    
+    #elif(resposta.startswith("")):
+        
 
 print("Desconectado do servidor. Encerrando programa")
