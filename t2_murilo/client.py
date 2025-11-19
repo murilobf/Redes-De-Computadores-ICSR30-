@@ -39,13 +39,18 @@ while pedido != "SAIR":
     
     elif(resposta.startswith("INICIO")):
         print(f"{resposta}\n\n")
+        _,tam_sha = resposta.split("|")
+        tam_arquivo,sha_arquivo = tam_sha.split("#")
+        tam_arquivo = int(tam_arquivo)
 
         while True:
-            resposta = sock_cliente.recv(TAM_BUFFER).decode()
-            if(resposta.startswith("FIM")):
+            resposta = sock_cliente.recv(TAM_BUFFER)
+            if(resposta.startswith(b"FIM")):
                 print(resposta)
                 break
 
-            print(resposta) #print aqui temporariamente, deve-se salvar o arquivo
+            with open(f"cliente_arquivo","ab") as arquivo:
+                arquivo.write(resposta)
+                    
 
 print("Desconectado do servidor. Encerrando programa")

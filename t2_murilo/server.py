@@ -57,13 +57,13 @@ def processar(conexao, endereco):
                     else:
                         with open(caminho_arquivo, 'rb') as arquivo:
                             conteudo = arquivo.read()
-                            tam_arquivo = formata_tamanho(len(conteudo))
+                            tam_arquivo = (len(conteudo))
                             sha_arquivo = sha256(conteudo)
 
-                            msg_inicio = f"INICIO|Tamanho: {tam_arquivo}#hash sha256:{sha_arquivo}".encode()
+                            msg_inicio = f"INICIO|{tam_arquivo}#{sha_arquivo}".encode()
                             conexao.sendall(msg_inicio)
 
-                            conexao.sendall(conteudo) 
+                            arquivo.seek(0)
                             while True:
                                 bloco = arquivo.read(TAM_BUFFER)
                                 
@@ -95,7 +95,7 @@ def processar(conexao, endereco):
                 msg_erro = f"ERRO 400|Comando invalido".encode()
 
                 conexao.sendall(msg_erro)
-               
+            
     finally:
         with clientes_lock:
             clientes_conectados.remove(conexao)
@@ -110,7 +110,6 @@ clientes_lock = threading.Lock()
 
 #Aguarda clientes
 while True:
-    print("\nAguardando novo cliente\n")
     conexao, endereco = servidor.accept()
 
     print(f"Criando thread para cliente {endereco}")
