@@ -60,7 +60,7 @@ def processar(conexao, endereco):
                             tam_arquivo = (len(conteudo))
                             sha_arquivo = sha256(conteudo)
 
-                            msg_inicio = f"INICIO|{tam_arquivo}#{sha_arquivo}".encode()
+                            msg_inicio = f"INICIO|{tam_arquivo}#{sha_arquivo}|".encode()
                             conexao.sendall(msg_inicio)
 
                             arquivo.seek(0)
@@ -99,6 +99,7 @@ def processar(conexao, endereco):
     finally:
         with clientes_lock:
             clientes_conectados.remove(conexao)
+            conexao.close()
 
 #Cria servidor e binda na porta
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

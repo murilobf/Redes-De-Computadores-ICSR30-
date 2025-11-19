@@ -27,7 +27,7 @@ while True:
 
 
 pedido = ""
-while pedido != "SAIR":
+while pedido != b"SAIR":
     pedido = input("Faça alguma requisição. \n" \
     "Requisições aceitas: GET|arquivo.ext; CHAT|lorem ipsum; SAIR;").encode()
 
@@ -39,18 +39,26 @@ while pedido != "SAIR":
     
     elif(resposta.startswith("INICIO")):
         print(f"{resposta}\n\n")
-        _,tam_sha = resposta.split("|")
-        tam_arquivo,sha_arquivo = tam_sha.split("#")
+        _,metadados = resposta.split("|",1)
+        print(metadados)
+        metadados,bloco = metadados.split("|",1) #garantia extra que vira só o header
+        tam_arquivo,sha_arquivo = metadados.split("#",1)
         tam_arquivo = int(tam_arquivo)
 
-        while True:
-            resposta = sock_cliente.recv(TAM_BUFFER)
-            if(resposta.startswith(b"FIM")):
-                print(resposta)
-                break
+        with open(f"cliente_arquivo","wb") as arquivo:
+            bytes_restantes = tam_arquivo
 
-            with open(f"cliente_arquivo","ab") as arquivo:
-                arquivo.write(resposta)
+            if(bloco):
+                arquivo.write(bloco.encode())
+                bytes_restantes -= len(bloco)
+
+            while bytes_restantes > 0:
+                bloco = sock_cliente.recv(min(bytes_restantes,TAM_BUFFER))  
+                arquivo.write(bloco)
+                bytes_restantes -= len(bloco)
+
+            resposta = sock_cliente.recv(TAM_BUFFER).decode()
+            print(resposta)
                     
 
 print("Desconectado do servidor. Encerrando programa")
