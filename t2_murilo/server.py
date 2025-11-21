@@ -5,9 +5,10 @@ import os
 
 TAM_BUFFER = 4096
 
-#TODO: IMPLEMENTAR A VERIFICACAO DO SHA256
-def sha256(dado):
+def calcula_sha256(dado):
     sha = hashlib.sha256()
+    sha.update(dado) #TODO: PEGAR PARTE POR PARTE (questões de eficiência já que pegar tudo de uma vez só pode pesar um pouco em ambientes multithread)
+    return sha.hexdigest()
 
 def broadcast(mensagem):
     
@@ -17,21 +18,12 @@ def broadcast(mensagem):
         for cliente in clientes_conectados:
             cliente.sendall(mensagem_formatada)#mesma coisa do send mas envia todos os segmentos
 
-def formata_tamanho(tamanho_bytes):
-    sufixos = ['B','kB','MB','GB']
+def processar_servidor():
+    while True:
+        mensagem = input("Insira a mensagem a qual deseja realizar o broadcast: ")
+        broadcast(mensagem)
 
-    for sufixo in sufixos:
-        formatado = str(tamanho_bytes) + sufixo
-
-        if(tamanho_bytes/1024 < 1):
-            break
-            
-        tamanho_bytes /= 1024
-
-    return formatado
-
-
-def processar(conexao, endereco):
+def processar_cliente(conexao, endereco):
     with clientes_lock:
         clientes_conectados.append(conexao)
 
@@ -58,7 +50,7 @@ def processar(conexao, endereco):
                         with open(caminho_arquivo, 'rb') as arquivo:
                             conteudo = arquivo.read()
                             tam_arquivo = (len(conteudo))
-                            sha_arquivo = sha256(conteudo)
+                            sha_arquivo = calcula_sha256(conteudo)
 
                             msg_inicio = f"INICIO|{tam_arquivo}#{sha_arquivo}|".encode()
                             conexao.sendall(msg_inicio)
@@ -109,10 +101,13 @@ servidor.listen(0)
 clientes_conectados = []
 clientes_lock = threading.Lock()
 
+thread_servidor = threading.Thread(target=processar_servidor)
+thread_servidor.start()
+
 #Aguarda clientes
 while True:
     conexao, endereco = servidor.accept()
 
     print(f"Criando thread para cliente {endereco}")
-    thread_cliente = threading.Thread(target=processar, args=(conexao,endereco))
+    thread_cliente = threading.Thread(target=processar_cliente, args=(conexao,endereco))
     thread_cliente.start()
