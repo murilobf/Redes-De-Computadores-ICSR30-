@@ -1,16 +1,20 @@
 import socket
 import hashlib
 import threading
+import queue
 
 TAM_BUFFER = 4096
 TEMPO_TIMEOUT = 2
 
 sock_cliente = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-sock_cliente.settimeout(TEMPO_TIMEOUT)
+
+queue_respostas = queue.Queue()
+
+evento_parada = threading.Event()
 
 def calcula_sha256(dado):
     sha = hashlib.sha256()
-    sha.update(dado) #TODO: PEGAR PARTE POR PARTE (questões de eficiência já que pegar tudo de uma vez só pode pesar um pouco em ambientes multithread)
+    sha.update(dado) 
     return sha.hexdigest()
 
 def formata_tamanho(tamanho_bytes):
@@ -23,7 +27,28 @@ def formata_tamanho(tamanho_bytes):
             
         tamanho_bytes /= 1024
 
-def ouve
+def recebe(evento_parada):    
+    while not evento_parada.is_set():
+        try:
+            resposta = sock_cliente.recv(TAM_BUFFER)
+
+            if not resposta:
+                print("\n Servidor encerrou a conexão. Encerrando programa")
+                evento_parada.set()
+                break
+
+            if(resposta.startswith(b"BROADCAST") or resposta.startswith(b"CHAT")):
+                print(f"\n{resposta.decode()}\n")
+
+            elif(resposta.startswith(b"ERRO")):
+                print(f"\n{resposta.decode()}\n")
+
+            else:
+                queue_respostas.put(resposta)
+        except Exception as e:
+            print(f"Conexão com o servidor perdida. Encerrando programa. \n \
+                  Exceção: {e}")
+            evento_parada.set()
 
 while True:
     endereco = input("Insira o servidor que quer se conectar no formato IP:PORTA (Ex: 127.0.0.1:5005). ").strip()
@@ -34,6 +59,9 @@ while True:
 
         try:
             sock_cliente.connect((ip,port))
+            thread_recebe = threading.Thread(target=recebe,args=(evento_parada,))
+            thread_recebe.start()
+            print("\nCONECTADO COM SUCESSO\n")
             break
 
         except (socket.timeout, OSError):
@@ -44,44 +72,63 @@ while True:
         print("Formato inválido, insira no formato IP:PORTA")
         continue
 
-thread_chat = threading.Thread(target=)
+print("====================================\n \
+      FAÇA ALGUMA REQUISIÇÃO\n \
+      REQUISIÇÕES ACEITAS:\n \
+      GET|arquivo.ext\n \
+      CHAT|lorem ipsum\n \
+      SAIR \n\
+====================================")
 
-pedido = ""
-while pedido != b"SAIR":
-    pedido = input("Faça alguma requisição. \n" \
-    "Requisições aceitas: GET|arquivo.ext; CHAT|lorem ipsum; SAIR;").encode()
+
+
+while not evento_parada.is_set():
+    pedido = input("").encode()
+    resposta = b''
 
     sock_cliente.sendall(pedido)
-    resposta = sock_cliente.recv(TAM_BUFFER).decode()
-
-    if(resposta.startswith("ERRO") or resposta.startswith("BROADCAST") or resposta.startswith("OK")):
-        print(f"\n{resposta}\n")
+            
+    if(pedido.startswith(b'SAIR')):
+        evento_parada.set()
+        break
     
-    elif(resposta.startswith("INICIO")):
-        _,metadados = resposta.split("|",1)
-        metadados,bloco = metadados.split("|",1) #garantia extra que vira só o header        
+    elif(pedido.startswith(b'GET|')):
+        try:
+            resposta = queue_respostas.get(timeout=2) 
+        except Exception as e:
+            print(e)
+            print("Algo deu errado. Tempo de resposta excedido.")
+
+
+    if(resposta.startswith(b"INICIO")):
+        _,metadados = resposta.split(b"|",1)
+        metadados,bloco = metadados.split(b"|",1)    
+        metadados = metadados.decode()    
         tam_arquivo,hash_arquivo = metadados.split("#",1)
         tam_arquivo = int(tam_arquivo)
+        print(metadados)
 
         caminho_arquivo = pedido.split(b"|",1)[1]
         print(f"INICIANDO ENVIO DO ARQUIVO {caminho_arquivo}. TAMANHO DO ARQUIVO: {formata_tamanho(tam_arquivo)}")
 
-        with open(f"cliente_arquivo","wb") as arquivo:
+        with open(f"cliente_arquivo_{(caminho_arquivo).decode()}","wb") as arquivo:
             bytes_restantes = tam_arquivo
 
             if(bloco):
-                arquivo.write(bloco.encode())
-                bytes_restantes -= len(bloco)
-
-            while bytes_restantes > 0:
-                bloco = sock_cliente.recv(min(bytes_restantes,TAM_BUFFER))  
                 arquivo.write(bloco)
                 bytes_restantes -= len(bloco)
 
-            resposta = sock_cliente.recv(TAM_BUFFER).decode()
-            print(resposta)
+            while bytes_restantes > 0:
+                try:
+                    bloco = queue_respostas.get(timeout=2)  
+                    arquivo.write(bloco)
+                    bytes_restantes -= len(bloco)
+                except Exception as e:
+                    print(f"\nEnvio interrompido.\n \
+                          {e}")
+                    break
 
-        with open("cliente_arquivo","rb") as arquivo:
+        with open(f"cliente_arquivo_{(caminho_arquivo).decode()}","rb") as arquivo:
             hash_recebido = calcula_sha256(arquivo.read())
 
         if(hash_recebido == hash_arquivo):
@@ -89,6 +136,6 @@ while pedido != b"SAIR":
 
         else:
             print("\nAlgo deu errado, o arquivo foi corrompido. Solicite novamente\n")
-                    
-
+                
+thread_recebe.join()
 print("Desconectado do servidor. Encerrando programa")

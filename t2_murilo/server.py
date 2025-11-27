@@ -7,7 +7,7 @@ TAM_BUFFER = 4096
 
 def calcula_sha256(dado):
     sha = hashlib.sha256()
-    sha.update(dado) #TODO: PEGAR PARTE POR PARTE (questões de eficiência já que pegar tudo de uma vez só pode pesar um pouco em ambientes multithread)
+    sha.update(dado) 
     return sha.hexdigest()
 
 def broadcast(mensagem):
@@ -16,11 +16,11 @@ def broadcast(mensagem):
 
     with clientes_lock:
         for cliente in clientes_conectados:
-            cliente.sendall(mensagem_formatada)#mesma coisa do send mas envia todos os segmentos
+            cliente.sendall(mensagem_formatada)
 
 def processar_servidor():
     while True:
-        mensagem = input("Insira a mensagem a qual deseja realizar o broadcast: ")
+        mensagem = input("")
         broadcast(mensagem)
 
 def processar_cliente(conexao, endereco):
@@ -39,7 +39,7 @@ def processar_cliente(conexao, endereco):
 
             try:
                 if dado.startswith("GET|"):
-                    _, caminho_arquivo = dado.split("|")
+                    _, caminho_arquivo = dado.split("|",1)
 
                     if not os.path.exists(caminho_arquivo):
                         msg_erro = f"ERRO 404|Arquivo solicitado nao encontrado. Caminho inserido: {caminho_arquivo}".encode()
@@ -63,40 +63,37 @@ def processar_cliente(conexao, endereco):
                                     break
 
                                 conexao.sendall(bloco)
-
-                            msg_fim = b"FIM|Transferencia finalizada."
-                            conexao.sendall(msg_fim)
                         
-                elif dado.startswith("CHAT"):
-                    _, mensagem = dado.split("|")
+                elif dado.startswith("CHAT|"):
+                    _, mensagem = dado.split("|",1)
 
                     print(f"MENSAGEM DE [{endereco}]: {mensagem}")
-                    msg_ok = b"OK|Mensagem recebida com sucesso!"
-                    conexao.sendall(msg_ok)
+                    msg_chat = b"CHAT|Mensagem recebida com sucesso!"
+                    conexao.sendall(msg_chat)
                     
                 elif dado.startswith("SAIR"):
                     print(f"SAIR: CLIENTE {endereco} se desconectou")
                     break
 
                 else:
-                    msg_erro = f"ERRO 400|Comando invalido".encode()
+                    msg_erro = b"ERRO 400|Comando invalido"
 
                     conexao.sendall(msg_erro)
+
             except Exception as e:
-                print(e)
-                msg_erro = f"ERRO 400|Comando invalido".encode()
+                msg_erro = b"ERRO 400|Comando invalido"
 
                 conexao.sendall(msg_erro)
             
     finally:
         with clientes_lock:
-            clientes_conectados.remove(conexao)
-            conexao.close()
+            if(conexao in clientes_conectados):
+                clientes_conectados.remove(conexao)
+                conexao.close()
 
-#Cria servidor e binda na porta
 servidor = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 servidor.bind(("127.0.0.1", 5005))
-servidor.listen(0)
+servidor.listen(5)
 
 clientes_conectados = []
 clientes_lock = threading.Lock()
@@ -104,7 +101,8 @@ clientes_lock = threading.Lock()
 thread_servidor = threading.Thread(target=processar_servidor)
 thread_servidor.start()
 
-#Aguarda clientes
+print("SERVIDOR INICIALIZADO. Mensagens digitadas no terminal serão enviadas para todos os clientes conectados.")
+
 while True:
     conexao, endereco = servidor.accept()
 
